@@ -44,12 +44,13 @@ module Vagrant
           :error_class => Errors::VagrantError,
           :error_key   => :ssh_bad_exit_status,
           :command     => command,
-          :sudo        => false
+          :sudo        => false,
+          :remove_ansi_escape_codes_from_output => true
         }.merge(opts || {})
 
         # Connect via SSH and execute the command in the shell.
         exit_status = connect do |connection|
-          shell_execute(connection, command, opts[:sudo], &block)
+          shell_execute(connection, command, opts[:sudo], opts[:remove_ansi_escape_codes_from_output], &block)
         end
 
         # Check for any errors
@@ -166,7 +167,7 @@ module Vagrant
      end
 
       # Executes the command on an SSH connection within a login shell.
-      def shell_execute(connection, command, sudo=false)
+      def shell_execute(connection, command, remove_ansi_escape_codes_from_output, sudo=false)
         @logger.info("Execute: #{command} (sudo=#{sudo.inspect})")
         exit_status = nil
 
@@ -182,7 +183,7 @@ module Vagrant
             ch2.on_data do |ch3, data|
               if block_given?
                 # Filter out the clear screen command
-                data = remove_ansi_escape_codes(data)
+                data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
                 @logger.debug("stdout: #{data}")
                 yield :stdout, data
               end
@@ -191,7 +192,7 @@ module Vagrant
             ch2.on_extended_data do |ch3, type, data|
               if block_given?
                 # Filter out the clear screen command
-                data = remove_ansi_escape_codes(data)
+                data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
                 @logger.debug("stderr: #{data}")
                 yield :stderr, data
               end
