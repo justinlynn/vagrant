@@ -45,12 +45,13 @@ module Vagrant
           :error_key   => :ssh_bad_exit_status,
           :command     => command,
           :sudo        => false,
-          :remove_ansi_escape_codes_from_output => true
+          :remove_ansi_escape_codes_from_output => true,
+          :terminal_type => "vt100"
         }.merge(opts || {})
 
         # Connect via SSH and execute the command in the shell.
         exit_status = connect do |connection|
-          shell_execute(connection, command, opts[:sudo], opts[:remove_ansi_escape_codes_from_output], &block)
+          shell_execute(connection, command, opts[:sudo], opts[:remove_ansi_escape_codes_from_output], opts[:terminal_type], &block)
         end
 
         # Check for any errors
@@ -167,7 +168,7 @@ module Vagrant
      end
 
       # Executes the command on an SSH connection within a login shell.
-      def shell_execute(connection, command, remove_ansi_escape_codes_from_output, sudo=false)
+      def shell_execute(connection, command, remove_ansi_escape_codes_from_output, terminal_type = "vt100", sudo=false)
         @logger.info("Execute: #{command} (sudo=#{sudo.inspect})")
         exit_status = nil
 
@@ -204,7 +205,7 @@ module Vagrant
             end
 
             # Set the terminal
-            ch2.send_data "export TERM=vt100\n"
+            ch2.send_data "export TERM=#{terminal_type}\n" if terminal_type
 
             # Output the command
             ch2.send_data "#{command}\n"
