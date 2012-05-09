@@ -51,7 +51,7 @@ module Vagrant
 
         # Connect via SSH and execute the command in the shell.
         exit_status = connect do |connection|
-          shell_execute(connection, command, opts[:sudo], opts[:remove_ansi_escape_codes_from_output], opts[:terminal_type], &block)
+          shell_execute(connection, command, opts[:remove_ansi_escape_codes_from_output], opts[:terminal_type], opts[:sudo], &block)
         end
 
         # Check for any errors
