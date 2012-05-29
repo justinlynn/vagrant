@@ -209,16 +209,24 @@ module Vagrant
                 end
               end
 
+              ch2.on_process do |ch3|
+                ch2.send_data STDIN.read
+              end
+
               ch2.on_request("exit-status") do |ch3, data|
                 exit_status = data.read_long
                 @logger.debug("Command exit status: #{exit_status}")
               end
+
             end
           end
         end
 
         # Wait for the channel to complete
         channel.wait
+
+        # Ensure event loop runs in a given interval, every 1/10th of a second, to process any input
+        session.loop(0.1)
 
         # Return the final exit status
         return exit_status
