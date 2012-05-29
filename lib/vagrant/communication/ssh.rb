@@ -168,7 +168,7 @@ module Vagrant
      end
 
       # Executes the command on an SSH connection within a login shell.
-      def shell_execute(connection, command, remove_ansi_escape_codes_from_output, terminal_type = "vt100", sudo=false)
+      def shell_execute(session, command, remove_ansi_escape_codes_from_output, terminal_type = "vt100", sudo=false)
         @logger.info("Execute: #{command} (sudo=#{sudo.inspect})")
         exit_status = nil
 
@@ -178,50 +178,55 @@ module Vagrant
         shell = "sudo -H #{shell}" if sudo
 
         # Open the channel so we can execute or command
-        channel = connection.request_pty(:term => terminal_type) do |ch, pty_success|
+        channel = session.open_channel do |ch|
 
-          if pty_success
-            @logger.debug("request_pty: PTY request succeeded.")
-          else
-            @logger.warn("request_pty: PTY request failed.")
+          ch.request_pty(:term => terminal_type) do |ch, pty_success|
+
+            if pty_success
+              @logger.debug("request_pty: PTY request succeeded.")
+            else
+              @logger.warn("request_pty: PTY request failed.")
+            end
+
+            ch.exec(shell) do |ch2, _|
+              # Setup the channel callbacks so we can get data and exit status
+              ch2.on_data do |ch3, data|
+                if block_given?
+                  # Filter out the clear screen command
+                  data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
+                  @logger.debug("stdout: #{data}")
+                  yield :stdout, data
+                end
+              end
+
+              ch2.on_extended_data do |ch3, type, data|
+                if block_given?
+                  # Filter out the clear screen command
+                  data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
+                  @logger.debug("stderr: #{data}")
+                  yield :stderr, data
+                end
+              end
+
+              ch2.on_request("exit-status") do |ch3, data|
+                exit_status = data.read_long
+                @logger.debug("Exit status: #{exit_status}")
+              end
+
+              # Set the terminal
+              ch2.send_data "export TERM=#{terminal_type}\n" if terminal_type
+
+              # Output the command
+              ch2.send_data "#{command}\n"
+
+              # Remember to exit or this channel will hang open
+              ch2.send_data "exit\n"
+            end
+
           end
 
-          ch.exec(shell) do |ch2, _|
-            # Setup the channel callbacks so we can get data and exit status
-            ch2.on_data do |ch3, data|
-              if block_given?
-                # Filter out the clear screen command
-                data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
-                @logger.debug("stdout: #{data}")
-                yield :stdout, data
-              end
-            end
-
-            ch2.on_extended_data do |ch3, type, data|
-              if block_given?
-                # Filter out the clear screen command
-                data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
-                @logger.debug("stderr: #{data}")
-                yield :stderr, data
-              end
-            end
-
-            ch2.on_request("exit-status") do |ch3, data|
-              exit_status = data.read_long
-              @logger.debug("Exit status: #{exit_status}")
-            end
-
-            # Set the terminal
-            ch2.send_data "export TERM=#{terminal_type}\n" if terminal_type
-
-            # Output the command
-            ch2.send_data "#{command}\n"
-
-            # Remember to exit or this channel will hang open
-            ch2.send_data "exit\n"
-          end
         end
-        
+
         # Wait for the channel to complete
         channel.wait
 
