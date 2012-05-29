@@ -210,7 +210,7 @@ module Vagrant
               end
 
               ch2.on_process do |ch3|
-                input = $stdin.read_nonblock
+                input = $stdin.read_nonblock(254) # read at most 254 bytes
                 if input
                   ch2.send_data(input)
                 end
