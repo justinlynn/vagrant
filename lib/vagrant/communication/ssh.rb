@@ -180,15 +180,7 @@ module Vagrant
         # Open the channel so we can execute or command
         channel = connection.open_channel do |ch|
           
-          # Request a pseudo-terminal for interactive commands
-          ch.request_pty do |ch, success|
-            if success
-              @logger.debug("request_pty: PTY request succeeded.")
-            else
-              @logger.warn("request_pty: PTY request failed.")
-            end
-          end
-        
+
           ch.exec(shell) do |ch2, _|
             # Setup the channel callbacks so we can get data and exit status
             ch2.on_data do |ch3, data|
@@ -219,6 +211,15 @@ module Vagrant
 
             # Output the command
             ch2.send_data "#{command}\n"
+
+            # Request a pseudo-terminal for interactive commands
+            ch2.request_pty do |ch, success|
+              if success
+                @logger.debug("request_pty: PTY request succeeded.")
+              else
+                @logger.warn("request_pty: PTY request failed.")
+              end
+            end
 
             # Remember to exit or this channel will hang open
             ch2.send_data "exit\n"
