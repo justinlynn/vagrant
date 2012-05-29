@@ -210,7 +210,12 @@ module Vagrant
               end
 
               ch2.on_process do |ch3|
-                input = $stdin.read_nonblock(254) # read at most 254 bytes
+                begin
+                  input = $stdin.read_nonblock(24) # read at most 24 bytes
+                rescue IO::WaitReadable # retry until non-blocking reads are possible
+                  IO.select([$stdin])
+                  retry
+                end
                 if input
                   ch2.send_data(input)
                 end
