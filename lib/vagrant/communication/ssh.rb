@@ -215,6 +215,9 @@ module Vagrant
           end
         end
 
+        # Request a pseudo-terminal for interactive commands
+        ch2.request_pty
+        
         # Wait for the channel to complete
         channel.wait
 
