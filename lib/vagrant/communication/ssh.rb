@@ -188,6 +188,10 @@ module Vagrant
               @logger.warn("request_pty: PTY request failed.")
             end
 
+            in_io = STDIN
+            in_io.extend Net::SSH::BufferedIo
+            session.listen_to in_io
+
             ch.exec("#{shell} -c '#{command}'") do |ch2, success|
 
               # Setup the channel callbacks so we can get data and exit status
@@ -210,12 +214,19 @@ module Vagrant
               end
 
               ch2.on_process do |ch3|
-                ch2.send_data STDIN.read
+                if in_io.available > 0
+                  ch2.send_data in_io.read_available
+                end
               end
 
               ch2.on_request("exit-status") do |ch3, data|
                 exit_status = data.read_long
                 @logger.debug("Command exit status: #{exit_status}")
+              end
+
+              ch2.on_close do
+                session.stop_listening_to in_io
+                in_io.close
               end
 
             end
