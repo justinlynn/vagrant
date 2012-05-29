@@ -188,47 +188,33 @@ module Vagrant
               @logger.warn("request_pty: PTY request failed.")
             end
 
-            ch.exec(shell) do |ch2, success|
+            ch.exec("#{shell} -c '#{command}'") do |ch2, success|
 
-              if success
-                @logger.debug("exec_shell: Shell executed.")
-              else
-                @logger.warn("exec_shell: Shell failed to execute!")
+              # Setup the channel callbacks so we can get data and exit status
+              ch2.on_data do |ch3, data|
+                if block_given?
+                  # Filter out the clear screen command
+                  data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
+                  @logger.debug("stdout: #{data}")
+                  yield :stdout, data
+                end
               end
 
-              ch2.exec(command) do |ch3, success|
-
-                # Setup the channel callbacks so we can get data and exit status
-                ch3.on_data do |ch4, data|
-                  if block_given?
-                    # Filter out the clear screen command
-                    data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
-                    @logger.debug("stdout: #{data}")
-                    yield :stdout, data
-                  end
+              ch2.on_extended_data do |ch3, type, data|
+                if block_given?
+                  # Filter out the clear screen command
+                  data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
+                  @logger.debug("stderr: #{data}")
+                  yield :stderr, data
                 end
-
-                ch3.on_extended_data do |ch4, type, data|
-                  if block_given?
-                    # Filter out the clear screen command
-                    data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
-                    @logger.debug("stderr: #{data}")
-                    yield :stderr, data
-                  end
-                end
-
-                ch3.on_request("exit-status") do |ch4, data|
-                  exit_status = data.read_long
-                  @logger.debug("Command exit status: #{exit_status}")
-                  ch2.send_data("exit\n"); #exit the shell
-                end
-
               end
 
+              ch2.on_request("exit-status") do |ch3, data|
+                exit_status = data.read_long
+                @logger.debug("Command exit status: #{exit_status}")
+              end
             end
-
           end
-
         end
 
         # Wait for the channel to complete
