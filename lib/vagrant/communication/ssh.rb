@@ -225,7 +225,7 @@ module Vagrant
                 io_thread.kill
               end
 
-              io_thread.join
+              io_thread.run
             end
           end
         end
