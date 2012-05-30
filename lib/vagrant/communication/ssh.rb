@@ -231,7 +231,7 @@ module Vagrant
         end
 
         # Ensure loop runs every 10 millis
-        channel.loop(0.01)
+        session.loop(0.01)
 
         # Wait for the channel to complete
         channel.wait
