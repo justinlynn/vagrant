@@ -213,7 +213,6 @@ module Vagrant
                 while true do
                   data = $stdin.gets
                   ch2.send_data(data)
-                  @logger.debug("io_thread: send data: #{data}")
                 end
               end
 
@@ -233,9 +232,6 @@ module Vagrant
 
         # Wait for the channel to complete
         channel.wait
-
-        # Ensure event loop runs in a given interval, every 1/20th of a second, to process any input
-        session.loop(0.05)
 
         # Return the final exit status
         return exit_status
