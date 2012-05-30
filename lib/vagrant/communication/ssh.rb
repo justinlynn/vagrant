@@ -211,8 +211,9 @@ module Vagrant
 
               io_thread = Thread.new do
                 while true do
-                  sleep 0.05
-                  ch2.send_data($stdin.gets)
+                  data = $stdin.gets
+                  ch2.send_data(data)
+                  @logger.debug("io_thread: send data: #{data}")
                 end
               end
 
