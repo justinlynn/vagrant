@@ -2,8 +2,6 @@ require "vagrant"
 
 module VagrantPlugins
   module CommandProvision
-    autoload :Command, File.expand_path("../command", __FILE__)
-
     class Plugin < Vagrant.plugin("1")
       name "provision command"
       description <<-DESC
@@ -11,7 +9,10 @@ module VagrantPlugins
       configuration of the Vagrantfile.
       DESC
 
-      command("provision") { Command }
+      command("provision") do
+        require File.expand_path("../command", __FILE__)
+        Command
+      end
     end
   end
 end

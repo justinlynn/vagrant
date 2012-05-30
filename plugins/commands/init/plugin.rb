@@ -2,8 +2,6 @@ require "vagrant"
 
 module VagrantPlugins
   module CommandInit
-    autoload :Command, File.expand_path("../command", __FILE__)
-
     class Plugin < Vagrant.plugin("1")
       name "init command"
       description <<-DESC
@@ -11,7 +9,10 @@ module VagrantPlugins
       Vagrant-managed environment.
       DESC
 
-      command("init") { Command }
+      command("init") do
+        require File.expand_path("../command", __FILE__)
+        Command
+      end
     end
   end
 end
