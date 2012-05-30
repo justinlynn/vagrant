@@ -168,52 +168,74 @@ module Vagrant
      end
 
       # Executes the command on an SSH connection within a login shell.
-      def shell_execute(connection, command, remove_ansi_escape_codes_from_output, terminal_type = "vt100", sudo=false)
+      def shell_execute(session, command, remove_ansi_escape_codes_from_output, terminal_type = "vt100", sudo=false)
         @logger.info("Execute: #{command} (sudo=#{sudo.inspect})")
         exit_status = nil
 
         # Determine the shell to execute. If we are using `sudo` then we
         # need to wrap the shell in a `sudo` call.
-        shell = "#{@vm.config.ssh.shell} -l"
+
+        shell = "#{@vm.config.ssh.shell}"
         shell = "sudo -H #{shell}" if sudo
 
         # Open the channel so we can execute or command
-        channel = connection.open_channel do |ch|
-          ch.exec(shell) do |ch2, _|
-            # Setup the channel callbacks so we can get data and exit status
-            ch2.on_data do |ch3, data|
-              if block_given?
-                # Filter out the clear screen command
-                data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
-                @logger.debug("stdout: #{data}")
-                yield :stdout, data
+        channel = session.open_channel do |ch|
+
+          ch.request_pty(:term => terminal_type) do |ch, pty_success|
+
+            if pty_success
+              @logger.debug("request_pty: PTY request succeeded.")
+            else
+              @logger.warn("request_pty: PTY request failed.")
+            end
+
+            require 'shellwords'
+            full_command = "#{shell} -c #{Shellwords.escape(command)}"
+            @logger.debug("ssh: exec'ing full command as: #{full_command}")
+            ch.exec(full_command) do |ch2, success|
+
+              # Setup the channel callbacks so we can get data and exit status
+              ch2.on_data do |ch3, data|
+                if block_given?
+                  # Filter out the clear screen command
+                  data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
+                  @logger.debug("stdout: #{data}")
+                  yield :stdout, data
+                end
               end
-            end
 
-            ch2.on_extended_data do |ch3, type, data|
-              if block_given?
-                # Filter out the clear screen command
-                data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
-                @logger.debug("stderr: #{data}")
-                yield :stderr, data
+              ch2.on_extended_data do |ch3, type, data|
+                if block_given?
+                  # Filter out the clear screen command
+                  data = remove_ansi_escape_codes(data) if remove_ansi_escape_codes_from_output
+                  @logger.debug("stderr: #{data}")
+                  yield :stderr, data
+                end
               end
+
+              io_thread = Thread.new do
+                while true do
+                  data = $stdin.gets
+                  ch2.send_data(data)
+                end
+              end
+
+              ch2.on_request("exit-status") do |ch3, data|
+                exit_status = data.read_long
+                @logger.debug("Command exit status: #{exit_status}")
+              end
+
+              ch2.on_close do
+                io_thread.kill
+              end
+
+              io_thread.run
             end
-
-            ch2.on_request("exit-status") do |ch3, data|
-              exit_status = data.read_long
-              @logger.debug("Exit status: #{exit_status}")
-            end
-
-            # Set the terminal
-            ch2.send_data "export TERM=#{terminal_type}\n" if terminal_type
-
-            # Output the command
-            ch2.send_data "#{command}\n"
-
-            # Remember to exit or this channel will hang open
-            ch2.send_data "exit\n"
           end
         end
+
+        # Ensure loop runs every 10 millis
+        session.loop(0.01)
 
         # Wait for the channel to complete
         channel.wait
