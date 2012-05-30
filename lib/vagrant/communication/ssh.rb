@@ -175,7 +175,7 @@ module Vagrant
         # Determine the shell to execute. If we are using `sudo` then we
         # need to wrap the shell in a `sudo` call.
 
-        shell = "#{@vm.config.ssh.shell} -l"
+        shell = "#{@vm.config.ssh.shell}"
         shell = "sudo -H #{shell}" if sudo
 
         # Open the channel so we can execute or command
@@ -189,7 +189,8 @@ module Vagrant
               @logger.warn("request_pty: PTY request failed.")
             end
 
-            full_command = "#{shell} -c '#{command}'"
+            require 'shellwords'
+            full_command = "#{shell} -c '#{Shellwords.escape(command)}'"
             @logger.debug("ssh: exec'ing full command as: #{full_command}")
             ch.exec(full_command) do |ch2, success|
 
