@@ -190,7 +190,7 @@ module Vagrant
             end
 
             require 'shellwords'
-            full_command = "#{shell} -c '#{Shellwords.escape(command)}'"
+            full_command = "#{shell} -c #{Shellwords.escape(command)}"
             @logger.debug("ssh: exec'ing full command as: #{full_command}")
             ch.exec(full_command) do |ch2, success|
 
