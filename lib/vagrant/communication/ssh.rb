@@ -209,15 +209,10 @@ module Vagrant
                 end
               end
 
-              ch2.on_process do |ch3|
-                begin
-                  input = $stdin.read_nonblock(24) # read at most 24 bytes
-                rescue IO::WaitReadable # retry until non-blocking reads are possible
-                  IO.select([$stdin])
-                  retry
-                end
-                if input
-                  ch2.send_data(input)
+              io_thread = Thread.new do
+                while true do
+                  sleep 0.05
+                  ch2.send_data($stdin.gets)
                 end
               end
 
@@ -226,6 +221,11 @@ module Vagrant
                 @logger.debug("Command exit status: #{exit_status}")
               end
 
+              ch2.on_close do
+                io_thread.kill
+              end
+
+              io_thread.join
             end
           end
         end
