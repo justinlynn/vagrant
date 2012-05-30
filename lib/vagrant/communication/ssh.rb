@@ -188,7 +188,9 @@ module Vagrant
               @logger.warn("request_pty: PTY request failed.")
             end
 
-            ch.exec("#{shell} -c '#{command}'") do |ch2, success|
+            full_command = "#{shell} -c '#{command}'"
+            @logger.debug("ssh: exec'ing full command as: #{full_command}")
+            ch.exec(full_command) do |ch2, success|
 
               # Setup the channel callbacks so we can get data and exit status
               ch2.on_data do |ch3, data|
